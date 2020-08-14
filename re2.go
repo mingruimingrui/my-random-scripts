@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 	"unsafe"
 )
@@ -21,6 +22,17 @@ const (
 	findAllMethod methodType = "findAll"
 	replaceMethod methodType = "replace"
 )
+
+func formatEscapeSequences(text string) string {
+	text = strings.ReplaceAll(text, "\\a", "\a")
+	text = strings.ReplaceAll(text, "\\b", "\b")
+	text = strings.ReplaceAll(text, "\\f", "\f")
+	text = strings.ReplaceAll(text, "\\n", "\n")
+	text = strings.ReplaceAll(text, "\\r", "\r")
+	text = strings.ReplaceAll(text, "\\t", "\t")
+	text = strings.ReplaceAll(text, "\\v", "\v")
+	return text
+}
 
 // bytesToString converts byte to string without copy
 func bytesToString(bytes []byte) (s string) {
@@ -60,7 +72,7 @@ func assertEqual(a interface{}, b interface{}, msg string) {
 
 func main() {
 	var patternStr string
-	var replaceStr []byte
+	var replaceStr string
 
 	// Flags
 	var method methodType
@@ -68,6 +80,7 @@ func main() {
 	findFlag := flag.Bool("f", false, "Search and find substring")
 	findAllFlag := flag.Bool("a", false, "Search and find all substrings")
 	replaceFlag := flag.Bool("r", false, "Replace pattern")
+	escapeFlag := flag.Bool("e", false, "Format escape sequences")
 	verboseFlag := flag.Bool("v", false, "Verbose")
 	flag.Parse()
 
@@ -86,7 +99,7 @@ func main() {
 	} else if *replaceFlag {
 		assertEqual(flag.NArg(), 2, "Expecting (only) 2 positional argument")
 		method = "replace"
-		replaceStr = []byte(flag.Arg(1))
+		replaceStr = flag.Arg(1)
 
 	} else {
 		// Default case is search like in grep
@@ -100,6 +113,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Format replaceStr
+	if *escapeFlag {
+		replaceStr = formatEscapeSequences(replaceStr)
+	}
+	replaceBytes := []byte(replaceStr)
 
 	if *verboseFlag {
 		fmt.Fprintf(os.Stderr, "Method: %v\n", method)
@@ -160,7 +179,7 @@ func main() {
 			}
 
 		case replaceMethod:
-			line = pattern.ReplaceAll(line, replaceStr)
+			line = pattern.ReplaceAll(line, replaceBytes)
 			writer.Write(line)
 			writer.WriteByte('\n')
 
