@@ -112,11 +112,11 @@ func main() {
 
 	if *verboseFlag {
 		timeTaken := time.Since(startTime)
-		sentsPerSecond := float64(nrecord) / timeTaken.Seconds()
+		recordsPerSecond := float64(nrecord) / timeTaken.Seconds()
 		fmt.Fprintf(os.Stderr, "\rRead %d records.\n", nrecord)
 		fmt.Fprintf(os.Stderr, "Found %d unique.\n", nunique)
 		fmt.Fprintf(os.Stderr, "Done in %v.\n", timeTaken)
-		fmt.Fprintf(os.Stderr, "%.2f sents/s\n", sentsPerSecond)
+		fmt.Fprintf(os.Stderr, "%.2f records/s\n", recordsPerSecond)
 	} else if *progressFlag {
 		fmt.Fprint(os.Stderr, "\n")
 	}
