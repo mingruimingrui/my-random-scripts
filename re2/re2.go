@@ -65,13 +65,13 @@ func main() {
 
 	// Flags
 	var method methodType
-	ignoreFlag := flag.Bool("i", false, "Ignore lines with pattern")
-	findFlag := flag.Bool("f", false, "Search and find substring")
-	findAllFlag := flag.Bool("a", false, "Search and find all substrings")
+	ignoreFlag := flag.Bool("i", false, "Ignore lines containing pattern")
+	findFlag := flag.Bool("f", false, "Find substring")
+	findAllFlag := flag.Bool("a", false, "Find all substrings")
 	replaceFlag := flag.Bool("r", false, "Replace pattern")
 	escapeFlag := flag.Bool("e", false, "Format escape sequences")
-	verboseFlag := flag.Bool("v", false, "Verbose")
-	progressFlag := flag.Bool("p", false, "Progress bar")
+	verboseFlag := flag.Bool("v", false, "Verbose?")
+	progressFlag := flag.Bool("p", false, "Progress?")
 	flag.Parse()
 
 	// Determine patternStr and replaceStr based on flag
