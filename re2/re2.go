@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
-	"unsafe"
 )
 
 type methodType string
@@ -34,19 +32,10 @@ func formatEscapeSequences(text string) string {
 	return text
 }
 
-// bytesToString converts byte to string without copy
-func bytesToString(bytes []byte) (s string) {
-	slice := (*reflect.SliceHeader)(unsafe.Pointer(&bytes))
-	str := (*reflect.StringHeader)(unsafe.Pointer(&s))
-	str.Data = slice.Data
-	str.Len = slice.Len
-	return s
-}
-
 // readLine reads a line from a buffered reader
 func readLine(reader *bufio.Reader) ([]byte, error) {
 	line := []byte{}
-	for true {
+	for {
 		_line, isPrefix, err := reader.ReadLine()
 		if err != nil {
 			return line, err
@@ -82,6 +71,7 @@ func main() {
 	replaceFlag := flag.Bool("r", false, "Replace pattern")
 	escapeFlag := flag.Bool("e", false, "Format escape sequences")
 	verboseFlag := flag.Bool("v", false, "Verbose")
+	progressFlag := flag.Bool("p", false, "Progress bar")
 	flag.Parse()
 
 	// Determine patternStr and replaceStr based on flag
@@ -140,7 +130,7 @@ func main() {
 	startTime := time.Now()
 	nline := 0
 
-	for true {
+	for {
 		line, err := readLine(reader)
 		if err != nil {
 			break
@@ -148,7 +138,7 @@ func main() {
 		nline++
 
 		// Log progress
-		if nline%100000 == 0 {
+		if *progressFlag && (nline%100000 == 0) {
 			fmt.Fprintf(os.Stderr, "\rRead %d lines", nline)
 		}
 
@@ -188,9 +178,11 @@ func main() {
 	}
 	writer.Flush()
 
-	timeTaken := time.Now().Sub(startTime)
-	sentsPerSecond := float64(nline) / timeTaken.Seconds()
-	fmt.Fprintf(os.Stderr, "\rRead %d lines.\n", nline)
-	fmt.Fprintf(os.Stderr, "Done in %v.\n", timeTaken)
-	fmt.Fprintf(os.Stderr, "%.2f sents/s\n", sentsPerSecond)
+	if *verboseFlag {
+		timeTaken := time.Since(startTime)
+		sentsPerSecond := float64(nline) / timeTaken.Seconds()
+		fmt.Fprintf(os.Stderr, "\rRead %d lines.\n", nline)
+		fmt.Fprintf(os.Stderr, "Done in %v.\n", timeTaken)
+		fmt.Fprintf(os.Stderr, "%.2f sents/s\n", sentsPerSecond)
+	}
 }
