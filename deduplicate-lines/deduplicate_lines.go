@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/md5"
+	"flag"
 	"fmt"
 	"os"
 	"reflect"
@@ -11,6 +12,14 @@ import (
 )
 
 type void struct{}
+
+var verboseFlag *bool = flag.Bool("v", false, "Verbose?")
+var progressFlag *bool = flag.Bool("p", false, "Progress?")
+
+var Usage = func() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [-v] [-p]\n", os.Args[0])
+	flag.PrintDefaults()
+}
 
 // bytesToString converts byte to string without copy
 func bytesToString(bytes []byte) (s string) {
@@ -24,7 +33,7 @@ func bytesToString(bytes []byte) (s string) {
 // readLine reads a line from a buffered reader
 func readLine(reader *bufio.Reader) ([]byte, error) {
 	line := []byte{}
-	for true {
+	for {
 		_line, isPrefix, err := reader.ReadLine()
 		if err != nil {
 			return line, err
@@ -38,6 +47,9 @@ func readLine(reader *bufio.Reader) ([]byte, error) {
 }
 
 func main() {
+	flag.Usage = Usage
+	flag.Parse()
+
 	hashes := make(map[string]void)
 	var member void
 
@@ -47,7 +59,7 @@ func main() {
 	startTime := time.Now()
 	nline := 0
 	nunique := 0
-	for true {
+	for {
 		// Read line
 		line, err := readLine(reader)
 		if err != nil {
@@ -56,7 +68,7 @@ func main() {
 		nline++
 
 		// Log progress
-		if nline%100000 == 0 {
+		if *progressFlag && (nline%100000 == 0) {
 			fmt.Fprintf(os.Stderr, "\rRead %d lines", nline)
 		}
 
@@ -77,10 +89,14 @@ func main() {
 	}
 	writer.Flush()
 
-	timeTaken := time.Now().Sub(startTime)
-	sentsPerSecond := float64(nline) / timeTaken.Seconds()
-	fmt.Fprintf(os.Stderr, "\rRead %d lines.\n", nline)
-	fmt.Fprintf(os.Stderr, "Found %d unique.\n", nunique)
-	fmt.Fprintf(os.Stderr, "Done in %v.\n", timeTaken)
-	fmt.Fprintf(os.Stderr, "%.2f sents/s\n", sentsPerSecond)
+	if *verboseFlag {
+		timeTaken := time.Since(startTime)
+		sentsPerSecond := float64(nline) / timeTaken.Seconds()
+		fmt.Fprintf(os.Stderr, "\rRead %d lines.\n", nline)
+		fmt.Fprintf(os.Stderr, "Found %d unique.\n", nunique)
+		fmt.Fprintf(os.Stderr, "Done in %v.\n", timeTaken)
+		fmt.Fprintf(os.Stderr, "%.2f sents/s\n", sentsPerSecond)
+	} else if *progressFlag {
+		fmt.Fprint(os.Stderr, "\n")
+	}
 }
