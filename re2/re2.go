@@ -11,6 +11,25 @@ import (
 	"time"
 )
 
+var ignoreFlag *bool = flag.Bool("i", false, "Ignore lines containing pattern")
+var findFlag *bool = flag.Bool("f", false, "Find substrings")
+var findAllFlag *bool = flag.Bool("a", false, "Find all substrings")
+var replaceFlag *bool = flag.Bool("r", false, "Replace all substrings")
+var unescapeFlag *bool = flag.Bool("e", false, "Unescape replacement string")
+var verboseFlag *bool = flag.Bool("v", false, "Verbose?")
+var progressFlag *bool = flag.Bool("p", false, "Progress?")
+
+var Usage = func() {
+	fmt.Fprintf(
+		os.Stderr,
+		"Usage: %s "+
+			"[-ifar] [-e] [-v] [-p] "+
+			"pattern [replacement]\n",
+		os.Args[0],
+	)
+	flag.PrintDefaults()
+}
+
 type methodType string
 
 const (
@@ -21,7 +40,7 @@ const (
 	replaceMethod methodType = "replace"
 )
 
-func formatEscapeSequences(text string) string {
+func unscapeString(text string) string {
 	text = strings.ReplaceAll(text, "\\a", "\a")
 	text = strings.ReplaceAll(text, "\\b", "\b")
 	text = strings.ReplaceAll(text, "\\f", "\f")
@@ -48,55 +67,32 @@ func readLine(reader *bufio.Reader) ([]byte, error) {
 	return line, nil
 }
 
-// assertEqual checks if 2 values are the same
-func assertEqual(a interface{}, b interface{}, msg string) {
-	if a == b {
-		return
-	}
-	if len(msg) == 0 {
-		msg = fmt.Sprintf("%v != %v", a, b)
-	}
-	log.Fatal(msg)
-}
-
 func main() {
-	var patternStr string
-	var replaceStr string
-
-	// Flags
-	var method methodType
-	ignoreFlag := flag.Bool("i", false, "Ignore lines containing pattern")
-	findFlag := flag.Bool("f", false, "Find substring")
-	findAllFlag := flag.Bool("a", false, "Find all substrings")
-	replaceFlag := flag.Bool("r", false, "Replace pattern")
-	escapeFlag := flag.Bool("e", false, "Format escape sequences")
-	verboseFlag := flag.Bool("v", false, "Verbose?")
-	progressFlag := flag.Bool("p", false, "Progress?")
+	flag.Usage = Usage
 	flag.Parse()
 
-	// Determine patternStr and replaceStr based on flag
-	if *ignoreFlag {
-		assertEqual(flag.NArg(), 1, "Expecting (only) 1 positional argument")
-		method = "ignore"
-	} else if *findFlag {
-		assertEqual(flag.NArg(), 1, "Expecting (only) 1 positional argument")
-		method = "find"
-
-	} else if *findAllFlag {
-		assertEqual(flag.NArg(), 1, "Expecting (only) 1 positional argument")
-		method = "findAll"
-
-	} else if *replaceFlag {
-		assertEqual(flag.NArg(), 2, "Expecting (only) 2 positional argument")
-		method = "replace"
-		replaceStr = flag.Arg(1)
-
-	} else {
-		// Default case is search like in grep
-		assertEqual(flag.NArg(), 1, "Expecting (only) 1 positional argument")
-		method = "search"
+	// Determine method, patternStr, replaceStr
+	if flag.NArg() < 1 {
+		log.Fatal("Pattern not provided")
 	}
-	patternStr = flag.Arg(0)
+	patternStr := flag.Arg(0)
+	replaceStr := ""
+
+	var method methodType
+	if *ignoreFlag {
+		method = ignoreMethod
+	} else if *findFlag {
+		method = findMethod
+	} else if *findAllFlag {
+		method = findAllMethod
+	} else if *replaceFlag {
+		method = replaceMethod
+		if flag.NArg() > 1 {
+			replaceStr = flag.Arg(1)
+		}
+	} else {
+		method = searchMethod
+	}
 
 	// Compile pattern
 	pattern, err := regexp.Compile(patternStr)
@@ -105,8 +101,8 @@ func main() {
 	}
 
 	// Format replaceStr
-	if *escapeFlag {
-		replaceStr = formatEscapeSequences(replaceStr)
+	if *unescapeFlag {
+		replaceStr = unscapeString(replaceStr)
 	}
 	replaceBytes := []byte(replaceStr)
 
@@ -121,7 +117,7 @@ func main() {
 	// Ensure is piped
 	fi, _ := os.Stdin.Stat()
 	if fi.Mode()&os.ModeCharDevice != 0 {
-		log.Fatal("Data must be piped")
+		log.Fatal("Expecting input from stdin")
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -137,20 +133,20 @@ func main() {
 		}
 		nline++
 
-		// Log progress
 		if *progressFlag && (nline%100000 == 0) {
 			fmt.Fprintf(os.Stderr, "\rRead %d lines", nline)
 		}
 
 		switch method {
-		case ignoreMethod:
-			if !pattern.Match(line) {
+
+		case searchMethod:
+			if pattern.Match(line) {
 				writer.Write(line)
 				writer.WriteByte('\n')
 			}
 
-		case searchMethod:
-			if pattern.Match(line) {
+		case ignoreMethod:
+			if !pattern.Match(line) {
 				writer.Write(line)
 				writer.WriteByte('\n')
 			}
@@ -164,8 +160,10 @@ func main() {
 
 		case findAllMethod:
 			for _, foundStr := range pattern.FindAll(line, -1) {
-				writer.Write(foundStr)
-				writer.WriteByte('\n')
+				if len(foundStr) > 0 {
+					writer.Write(foundStr)
+					writer.WriteByte('\n')
+				}
 			}
 
 		case replaceMethod:
@@ -184,5 +182,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\rRead %d lines.\n", nline)
 		fmt.Fprintf(os.Stderr, "Done in %v.\n", timeTaken)
 		fmt.Fprintf(os.Stderr, "%.2f sents/s\n", sentsPerSecond)
+	} else if *progressFlag {
+		fmt.Fprint(os.Stderr, "\n")
 	}
 }
