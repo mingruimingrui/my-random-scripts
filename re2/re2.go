@@ -114,10 +114,10 @@ func main() {
 		}
 	}
 
-	// Ensure is piped
+	isTTY := false
 	fi, _ := os.Stdin.Stat()
 	if fi.Mode()&os.ModeCharDevice != 0 {
-		log.Fatal("Expecting input from stdin")
+		isTTY = true
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -125,6 +125,14 @@ func main() {
 
 	startTime := time.Now()
 	nline := 0
+
+	writeLine := func(text []byte) {
+		writer.Write(text)
+		writer.WriteByte('\n')
+		if isTTY {
+			writer.Flush()
+		}
+	}
 
 	for {
 		line, err := readLine(reader)
@@ -141,35 +149,30 @@ func main() {
 
 		case searchMethod:
 			if pattern.Match(line) {
-				writer.Write(line)
-				writer.WriteByte('\n')
+				writeLine(line)
 			}
 
 		case ignoreMethod:
 			if !pattern.Match(line) {
-				writer.Write(line)
-				writer.WriteByte('\n')
+				writeLine(line)
 			}
 
 		case findMethod:
 			foundStr := pattern.Find(line)
 			if len(foundStr) > 0 {
-				writer.Write(foundStr)
-				writer.WriteByte('\n')
+				writeLine(foundStr)
 			}
 
 		case findAllMethod:
 			for _, foundStr := range pattern.FindAll(line, -1) {
 				if len(foundStr) > 0 {
-					writer.Write(foundStr)
-					writer.WriteByte('\n')
+					writeLine(foundStr)
 				}
 			}
 
 		case replaceMethod:
 			line = pattern.ReplaceAll(line, replaceBytes)
-			writer.Write(line)
-			writer.WriteByte('\n')
+			writeLine(line)
 
 		}
 
