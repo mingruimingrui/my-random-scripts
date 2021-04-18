@@ -40,6 +40,11 @@ const (
 	replaceMethod methodType = "replace"
 )
 
+func checkIsTTY() bool {
+	fi, _ := os.Stdin.Stat()
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 func unscapeString(text string) string {
 	text = strings.ReplaceAll(text, "\\a", "\a")
 	text = strings.ReplaceAll(text, "\\b", "\b")
@@ -114,11 +119,7 @@ func main() {
 		}
 	}
 
-	isTTY := false
-	fi, _ := os.Stdin.Stat()
-	if fi.Mode()&os.ModeCharDevice != 0 {
-		isTTY = true
-	}
+	isTTY := checkIsTTY()
 
 	reader := bufio.NewReader(os.Stdin)
 	writer := bufio.NewWriter(os.Stdout)
