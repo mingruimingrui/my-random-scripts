@@ -24,6 +24,11 @@ var Usage = func() {
 	flag.PrintDefaults()
 }
 
+func checkIsTTY() bool {
+	fi, _ := os.Stdin.Stat()
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 // stringToBytes converts string to bytes without copy
 func stringToBytes(s string) (bytes []byte) {
 	str := (*reflect.StringHeader)(unsafe.Pointer(&s))
@@ -69,6 +74,8 @@ func main() {
 	hashes := make(map[string]void)
 	var member void
 
+	isTTY := checkIsTTY()
+
 	reader := csv.NewReader(os.Stdin)
 	writer := csv.NewWriter(os.Stdout)
 
@@ -107,6 +114,9 @@ func main() {
 		nunique++
 		hashes[hstring] = member
 		writer.Write(record)
+		if isTTY {
+			writer.Flush()
+		}
 	}
 	writer.Flush()
 

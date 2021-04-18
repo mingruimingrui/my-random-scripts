@@ -21,6 +21,11 @@ var Usage = func() {
 	flag.PrintDefaults()
 }
 
+func checkIsTTY() bool {
+	fi, _ := os.Stdin.Stat()
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 // bytesToString converts byte to string without copy
 func bytesToString(bytes []byte) (s string) {
 	slice := (*reflect.SliceHeader)(unsafe.Pointer(&bytes))
@@ -52,6 +57,8 @@ func main() {
 
 	hashes := make(map[string]void)
 	var member void
+
+	isTTY := checkIsTTY()
 
 	reader := bufio.NewReader(os.Stdin)
 	writer := bufio.NewWriter(os.Stdout)
@@ -86,6 +93,9 @@ func main() {
 		hashes[hstring] = member
 		writer.Write(line)
 		writer.WriteByte('\n')
+		if isTTY {
+			writer.Flush()
+		}
 	}
 	writer.Flush()
 
